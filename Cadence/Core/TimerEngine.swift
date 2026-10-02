@@ -75,8 +75,8 @@ final class TimerEngine {
     }
 
     @discardableResult
-    func advance(to date: Date) -> [TimerPhase] {
-        guard case .running(let phase, let blockEndsAt) = state, blockEndsAt <= date else { return [] }
+    func advance(to date: Date) -> TimerPhase? {
+        guard case .running(let phase, let blockEndsAt) = state, blockEndsAt <= date else { return nil }
         if phase == .focus {
             completedFocusBlocks += 1
         }
@@ -88,7 +88,7 @@ final class TimerEngine {
             nextPhase = .focus
         }
         state = .running(phase: nextPhase, blockEndsAt: date.addingTimeInterval(duration(for: nextPhase)))
-        return [phase]
+        return phase
     }
 
     private func duration(for phase: TimerPhase) -> TimeInterval {
