@@ -3,6 +3,20 @@ import Testing
 @testable import Cadence
 
 @MainActor
+final class PhaseNotifierSpy: PhaseNotifying {
+    private(set) var authorizationRequests = 0
+    private(set) var notifications: [(phase: TimerPhase, sound: String?)] = []
+
+    func requestAuthorization() {
+        authorizationRequests += 1
+    }
+
+    func notify(_ phase: TimerPhase, sound: String?) {
+        notifications.append((phase, sound))
+    }
+}
+
+@MainActor
 @Suite("MenuBarModel")
 struct MenuBarModelTests {
 
@@ -13,14 +27,26 @@ struct MenuBarModelTests {
 
     let t0 = Date(timeIntervalSince1970: 2_000_000)
 
-    private func makeModel() -> (MenuBarModel, Clock) {
+    private func makeStore() -> NotificationPreferencesStore {
+        let defaults = UserDefaults(suiteName: "MenuBarModelTests-\(UUID().uuidString)")!
+        return NotificationPreferencesStore(userDefaults: defaults)
+    }
+
+    private func makeModel(store: NotificationPreferencesStore? = nil) -> (MenuBarModel, Clock, PhaseNotifierSpy) {
         let clock = Clock(t0)
-        let model = MenuBarModel(engine: TimerEngine(), now: { clock.now })
-        return (model, clock)
+        let spy = PhaseNotifierSpy()
+        let model = MenuBarModel(
+            engine: TimerEngine(),
+            now: { clock.now },
+            notifier: spy,
+            availableSounds: ["Glass", "Ping"],
+            preferencesStore: store ?? makeStore()
+        )
+        return (model, clock, spy)
     }
 
     @Test func initialStateIsMirrored() {
-        let (model, _) = makeModel()
+        let (model, _, _) = makeModel()
         #expect(model.isIdle)
         #expect(!model.isRunning)
         #expect(!model.isPaused)
@@ -29,7 +55,7 @@ struct MenuBarModelTests {
     }
 
     @Test func startMirrorsRunningState() {
-        let (model, _) = makeModel()
+        let (model, _, _) = makeModel()
         model.start()
         #expect(model.isRunning)
         #expect(model.phase == .focus)
@@ -37,7 +63,7 @@ struct MenuBarModelTests {
     }
 
     @Test func pauseAndResumeMirrorState() {
-        let (model, clock) = makeModel()
+        let (model, clock, _) = makeModel()
         model.start()
         clock.now = t0.addingTimeInterval(600)
         model.pause()
@@ -50,7 +76,7 @@ struct MenuBarModelTests {
     }
 
     @Test func resetReturnsToIdle() {
-        let (model, _) = makeModel()
+        let (model, _, _) = makeModel()
         model.start()
         model.reset()
         #expect(model.isIdle)
@@ -58,7 +84,7 @@ struct MenuBarModelTests {
     }
 
     @Test func tickCompletesBlockAndMirrorsNextPhase() {
-        let (model, clock) = makeModel()
+        let (model, clock, _) = makeModel()
         model.start()
         clock.now = t0.addingTimeInterval(25 * 60)
         model.tick()
@@ -67,13 +93,69 @@ struct MenuBarModelTests {
     }
 
     @Test func menuBarLabelShowsReadyWhenIdle() {
-        let (model, _) = makeModel()
+        let (model, _, _) = makeModel()
         #expect(model.menuBarLabel == "Ready")
     }
 
     @Test func menuBarLabelShowsCountdownWhenRunning() {
-        let (model, _) = makeModel()
+        let (model, _, _) = makeModel()
         model.start()
         #expect(model.menuBarLabel == "25:00")
+    }
+
+    @Test func initRequestsNotificationAuthorization() {
+        let (_, _, spy) = makeModel()
+        #expect(spy.authorizationRequests == 1)
+    }
+
+    @Test func blockCompletionNotifiesWithCompletedPhaseAndSound() {
+        let (model, clock, spy) = makeModel()
+        model.start()
+        clock.now = t0.addingTimeInterval(25 * 60)
+        model.tick()
+        #expect(spy.notifications.count == 1)
+        #expect(spy.notifications.first?.phase == .focus)
+        #expect(spy.notifications.first?.sound == "Glass")
+    }
+
+    @Test func mutedModelNotifiesWithoutSound() {
+        let (model, clock, spy) = makeModel()
+        model.setMuted(true)
+        model.start()
+        clock.now = t0.addingTimeInterval(25 * 60)
+        model.tick()
+        #expect(spy.notifications.count == 1)
+        #expect(spy.notifications.first?.sound == nil)
+    }
+
+    @Test func manualControlsDoNotNotify() {
+        let (model, clock, spy) = makeModel()
+        model.start()
+        clock.now = t0.addingTimeInterval(600)
+        model.pause()
+        model.resume()
+        model.reset()
+        #expect(spy.notifications.isEmpty)
+    }
+
+    @Test func selectSoundIgnoresUnknownNames() {
+        let (model, _, _) = makeModel()
+        model.selectSound("Nope")
+        #expect(model.soundName == "Glass")
+    }
+
+    @Test func selectSoundPersistsSelection() {
+        let store = makeStore()
+        let (model, _, _) = makeModel(store: store)
+        model.selectSound("Ping")
+        #expect(model.soundName == "Ping")
+        #expect(store.load().soundName == "Ping")
+    }
+
+    @Test func mutePersists() {
+        let store = makeStore()
+        let (model, _, _) = makeModel(store: store)
+        model.setMuted(true)
+        #expect(store.load().isMuted)
     }
 }
