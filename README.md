@@ -7,6 +7,8 @@ working:
 - **Solo:** classic pomodoro cycle with focus blocks, short breaks and a long break after four focus blocks.
 - **Pair (driver/navigator):** two named participants rotate roles automatically at the end of every focus block, with a notification naming the incoming driver.
 
+When a focus block or break ends, Cadence shows a notification and plays a selectable system sound; the sound can be muted from the dropdown.
+
 ## Roadmap
 
 | Milestone | Scope |
