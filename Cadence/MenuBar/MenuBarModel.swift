@@ -31,9 +31,7 @@ final class MenuBarModel {
         self.preferencesStore = preferencesStore
         let preferences = preferencesStore.load()
         isMuted = preferences.isMuted
-        soundName = availableSounds.contains(preferences.soundName)
-            ? preferences.soundName
-            : NotificationPreferences.defaultSoundName
+        soundName = Self.resolvedSoundName(preferences.soundName, available: availableSounds)
         notifier.requestAuthorization()
         tickTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -106,6 +104,17 @@ final class MenuBarModel {
 
     private func persist() {
         preferencesStore.save(NotificationPreferences(isMuted: isMuted, soundName: soundName))
+    }
+
+    private static func resolvedSoundName(_ stored: String, available: [String]) -> String {
+        if available.contains(stored) {
+            return stored
+        }
+        let preferred = NotificationPreferences.standard.soundName
+        if available.contains(preferred) {
+            return preferred
+        }
+        return available.first ?? preferred
     }
 
     private func sync() {

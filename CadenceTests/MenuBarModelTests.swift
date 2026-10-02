@@ -26,20 +26,23 @@ struct MenuBarModelTests {
     }
 
     let t0 = Date(timeIntervalSince1970: 2_000_000)
+    private let ephemeral = EphemeralDefaults()
 
     private func makeStore() -> NotificationPreferencesStore {
-        let defaults = UserDefaults(suiteName: "MenuBarModelTests-\(UUID().uuidString)")!
-        return NotificationPreferencesStore(userDefaults: defaults)
+        NotificationPreferencesStore(userDefaults: ephemeral.defaults)
     }
 
-    private func makeModel(store: NotificationPreferencesStore? = nil) -> (MenuBarModel, Clock, PhaseNotifierSpy) {
+    private func makeModel(
+        store: NotificationPreferencesStore? = nil,
+        availableSounds: [String] = ["Glass", "Ping"]
+    ) -> (MenuBarModel, Clock, PhaseNotifierSpy) {
         let clock = Clock(t0)
         let spy = PhaseNotifierSpy()
         let model = MenuBarModel(
             engine: TimerEngine(),
             now: { clock.now },
             notifier: spy,
-            availableSounds: ["Glass", "Ping"],
+            availableSounds: availableSounds,
             preferencesStore: store ?? makeStore()
         )
         return (model, clock, spy)
@@ -157,5 +160,30 @@ struct MenuBarModelTests {
         let (model, _, _) = makeModel(store: store)
         model.setMuted(true)
         #expect(store.load().isMuted)
+    }
+
+    @Test func soundFallbackSkipsMissingDefaultSound() {
+        let (model, _, _) = makeModel(availableSounds: ["Ping"])
+        #expect(model.soundName == "Ping")
+    }
+
+    @Test func breakCompletionNotifiesWithBreakPhase() {
+        let (model, clock, spy) = makeModel()
+        model.start()
+        clock.now = t0.addingTimeInterval(25 * 60)
+        model.tick()
+        clock.now = t0.addingTimeInterval(30 * 60)
+        model.tick()
+        #expect(spy.notifications.count == 2)
+        #expect(spy.notifications.last?.phase == .shortBreak)
+    }
+
+    @Test func selectedSoundIsPassedToNotifier() {
+        let (model, clock, spy) = makeModel()
+        model.selectSound("Ping")
+        model.start()
+        clock.now = t0.addingTimeInterval(25 * 60)
+        model.tick()
+        #expect(spy.notifications.first?.sound == "Ping")
     }
 }
