@@ -5,9 +5,10 @@ import Testing
 @Suite("NotificationPreferences")
 struct NotificationPreferencesTests {
 
+    private let ephemeral = EphemeralDefaults()
+
     private func makeStore() -> NotificationPreferencesStore {
-        let defaults = UserDefaults(suiteName: "NotificationPreferencesTests-\(UUID().uuidString)")!
-        return NotificationPreferencesStore(userDefaults: defaults)
+        NotificationPreferencesStore(userDefaults: ephemeral.defaults)
     }
 
     @Test func defaultsAreAudibleWithDefaultSound() {
