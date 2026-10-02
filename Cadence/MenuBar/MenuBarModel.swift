@@ -5,18 +5,20 @@ import Observation
 @Observable
 final class MenuBarModel {
     private let engine: TimerEngine
+    private let now: () -> Date
 
     private(set) var state: TimerEngine.State = .idle
     private(set) var remaining: TimeInterval = 0
     @ObservationIgnored private var tickTask: Task<Void, Never>?
 
-    init(engine: TimerEngine = TimerEngine()) {
+    init(engine: TimerEngine = TimerEngine(), now: @escaping () -> Date = { Date() }) {
         self.engine = engine
+        self.now = now
         tickTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
                 guard let self else { return }
-                self.tick(at: .now)
+                self.tick()
             }
         }
     }
@@ -40,28 +42,38 @@ final class MenuBarModel {
     var isIdle: Bool { state == .idle }
 
     func start() {
-        engine.start(at: .now)
-        tick(at: .now)
+        engine.start(at: now())
+        sync()
     }
 
     func pause() {
-        engine.pause(at: .now)
-        tick(at: .now)
+        engine.pause(at: now())
+        sync()
     }
 
     func resume() {
-        engine.resume(at: .now)
-        tick(at: .now)
+        engine.resume(at: now())
+        sync()
     }
 
     func reset() {
         engine.reset()
-        tick(at: .now)
+        sync()
     }
 
-    private func tick(at date: Date) {
-        engine.advance(to: date)
-        state = engine.state
-        remaining = engine.remaining(at: date)
+    func tick() {
+        engine.advance(to: now())
+        sync()
+    }
+
+    private func sync() {
+        let newState = engine.state
+        let newRemaining = engine.remaining(at: now())
+        if newState != state {
+            state = newState
+        }
+        if newRemaining != remaining {
+            remaining = newRemaining
+        }
     }
 }
