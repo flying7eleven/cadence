@@ -1,6 +1,8 @@
 # Cadence
 
-Cadence is a native macOS menu bar pomodoro timer, built with SwiftUI. It supports two ways of working:
+Cadence is a native macOS menu bar pomodoro timer, built with SwiftUI. The menu bar shows the remaining time of the
+current block; the dropdown shows the current phase and offers start, pause/resume and reset. It supports two ways of
+working:
 
 - **Solo:** classic pomodoro cycle with focus blocks, short breaks and a long break after four focus blocks.
 - **Pair (driver/navigator):** two named participants rotate roles automatically at the end of every focus block, with a notification naming the incoming driver.
