@@ -1,4 +1,3 @@
-// Temporary stub for the timer core; replaced by the tested implementation at integration.
 import Foundation
 
 enum TimerPhase: Equatable {
@@ -30,8 +29,15 @@ final class TimerEngine {
         case paused(phase: TimerPhase, remaining: TimeInterval)
     }
 
+    // Degenerate injected values are clamped so the engine cannot spin on zero-length blocks;
+    // non-finite values fall back to the standard duration because NaN comparisons never order.
     init(durations: TimerDurations = .standard) {
-        self.durations = durations
+        self.durations = TimerDurations(
+            focus: TimerEngine.saneDuration(durations.focus, fallback: TimerDurations.standard.focus),
+            shortBreak: TimerEngine.saneDuration(durations.shortBreak, fallback: TimerDurations.standard.shortBreak),
+            longBreak: TimerEngine.saneDuration(durations.longBreak, fallback: TimerDurations.standard.longBreak),
+            focusBlocksUntilLongBreak: max(durations.focusBlocksUntilLongBreak, 1)
+        )
     }
 
     private let durations: TimerDurations
@@ -40,22 +46,26 @@ final class TimerEngine {
 
     var phase: TimerPhase {
         switch state {
-        case .idle: .idle
-        case .running(let phase, _): phase
-        case .paused(let phase, _): phase
+        case .idle:
+            return .idle
+        case .running(let phase, _), .paused(let phase, _):
+            return phase
         }
     }
 
     func remaining(at date: Date) -> TimeInterval {
         switch state {
-        case .idle: 0
-        case .running(_, let blockEndsAt): max(0, blockEndsAt.timeIntervalSince(date))
-        case .paused(_, let remaining): remaining
+        case .idle:
+            return 0
+        case .running(_, let blockEndsAt):
+            return max(0, blockEndsAt.timeIntervalSince(date))
+        case .paused(_, let remaining):
+            return remaining
         }
     }
 
     func start(at date: Date) {
-        guard state == .idle else { return }
+        guard case .idle = state else { return }
         state = .running(phase: .focus, blockEndsAt: date.addingTimeInterval(durations.focus))
     }
 
@@ -75,28 +85,37 @@ final class TimerEngine {
     }
 
     @discardableResult
-    func advance(to date: Date) -> TimerPhase? {
-        guard case .running(let phase, let blockEndsAt) = state, blockEndsAt <= date else { return nil }
-        if phase == .focus {
-            completedFocusBlocks += 1
-        }
-        let nextPhase: TimerPhase
+    func advance(to date: Date) -> [TimerPhase] {
+        guard case .running(let phase, let blockEndsAt) = state, blockEndsAt <= date else { return [] }
+        let next: TimerPhase
         switch phase {
         case .focus:
-            nextPhase = completedFocusBlocks % durations.focusBlocksUntilLongBreak == 0 ? .longBreak : .shortBreak
-        case .shortBreak, .longBreak, .idle:
-            nextPhase = .focus
+            completedFocusBlocks += 1
+            next = completedFocusBlocks % durations.focusBlocksUntilLongBreak == 0 ? .longBreak : .shortBreak
+        case .shortBreak, .longBreak:
+            next = .focus
+        case .idle:
+            return []
         }
-        state = .running(phase: nextPhase, blockEndsAt: date.addingTimeInterval(duration(for: nextPhase)))
-        return phase
+        state = .running(phase: next, blockEndsAt: date.addingTimeInterval(duration(of: next)))
+        return [phase]
     }
 
-    private func duration(for phase: TimerPhase) -> TimeInterval {
+    private func duration(of phase: TimerPhase) -> TimeInterval {
         switch phase {
-        case .focus: durations.focus
-        case .shortBreak: durations.shortBreak
-        case .longBreak: durations.longBreak
-        case .idle: 0
+        case .focus:
+            return durations.focus
+        case .shortBreak:
+            return durations.shortBreak
+        case .longBreak:
+            return durations.longBreak
+        case .idle:
+            return 0
         }
+    }
+
+    private static func saneDuration(_ value: TimeInterval, fallback: TimeInterval) -> TimeInterval {
+        guard value.isFinite else { return fallback }
+        return max(value, 1)
     }
 }
