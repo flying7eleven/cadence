@@ -16,9 +16,13 @@ driver, navigator.
 ## Stack and layout
 
 - SwiftUI, Swift 6, current stable Xcode. Deployment target: macOS 27.
+- CI runs on the `xcode-27` runner image (the only GitHub-hosted image with a macOS 27 SDK, currently a public preview
+  without SLA). Keep `.github/workflows/ci.yml` in sync with this.
 - Xcode project at repo root: `Cadence.xcodeproj`, shared scheme `Cadence`. These names must stay in sync with
   `.github/workflows/ci.yml`.
 - App sources in `Cadence/`, unit tests in `CadenceTests/`.
+- The project uses file-system-synchronized groups: new `.swift` files dropped into `Cadence/` or `CadenceTests/` are
+  picked up automatically. Never edit `project.pbxproj` to add source files.
 - All timer and rotation logic lives in a testable core (types under `Cadence/Core/` or a `CadenceCore` SwiftPM package)
   with no SwiftUI dependencies. The UI layer stays thin.
 

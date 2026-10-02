@@ -8,13 +8,8 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: macos-latest
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v4
       - name: Build and test
-        run: |
-          if [ ! -d Cadence.xcodeproj ]; then
-            echo "Cadence.xcodeproj not present yet (pre-bootstrap, see issue #1); skipping build."
-            exit 0
-          fi
-          xcodebuild -project Cadence.xcodeproj -scheme Cadence -destination 'platform=macOS' test
+        run: xcodebuild -project Cadence.xcodeproj -scheme Cadence -destination 'platform=macOS' test
