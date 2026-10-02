@@ -8,7 +8,7 @@ struct CadenceApp: App {
         MenuBarExtra {
             MenuBarView(model: model)
         } label: {
-            Text(CountdownFormatter.string(from: model.remaining))
+            Text(model.menuBarLabel)
         }
         .menuBarExtraStyle(.menu)
     }

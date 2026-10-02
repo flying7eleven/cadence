@@ -65,4 +65,15 @@ struct MenuBarModelTests {
         #expect(model.phase == .shortBreak)
         #expect(model.remaining == 5 * 60)
     }
+
+    @Test func menuBarLabelShowsReadyWhenIdle() {
+        let (model, _) = makeModel()
+        #expect(model.menuBarLabel == "Ready")
+    }
+
+    @Test func menuBarLabelShowsCountdownWhenRunning() {
+        let (model, _) = makeModel()
+        model.start()
+        #expect(model.menuBarLabel == "25:00")
+    }
 }

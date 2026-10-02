@@ -41,6 +41,10 @@ final class MenuBarModel {
 
     var isIdle: Bool { state == .idle }
 
+    var menuBarLabel: String {
+        isIdle ? PhaseDisplayName.string(for: .idle) : CountdownFormatter.string(from: remaining)
+    }
+
     func start() {
         engine.start(at: now())
         sync()
