@@ -29,12 +29,13 @@ final class TimerEngine {
         case paused(phase: TimerPhase, remaining: TimeInterval)
     }
 
-    // Degenerate injected values are clamped so the engine cannot spin on zero-length blocks.
+    // Degenerate injected values are clamped so the engine cannot spin on zero-length blocks;
+    // non-finite values fall back to the standard duration because NaN comparisons never order.
     init(durations: TimerDurations = .standard) {
         self.durations = TimerDurations(
-            focus: max(durations.focus, 1),
-            shortBreak: max(durations.shortBreak, 1),
-            longBreak: max(durations.longBreak, 1),
+            focus: TimerEngine.saneDuration(durations.focus, fallback: TimerDurations.standard.focus),
+            shortBreak: TimerEngine.saneDuration(durations.shortBreak, fallback: TimerDurations.standard.shortBreak),
+            longBreak: TimerEngine.saneDuration(durations.longBreak, fallback: TimerDurations.standard.longBreak),
             focusBlocksUntilLongBreak: max(durations.focusBlocksUntilLongBreak, 1)
         )
     }
@@ -111,5 +112,10 @@ final class TimerEngine {
         case .idle:
             return 0
         }
+    }
+
+    private static func saneDuration(_ value: TimeInterval, fallback: TimeInterval) -> TimeInterval {
+        guard value.isFinite else { return fallback }
+        return max(value, 1)
     }
 }

@@ -183,4 +183,12 @@ struct TimerEngineTests {
         #expect(engine.advance(to: t0.addingTimeInterval(2)) == [.longBreak])
         #expect(engine.state == .running(phase: .focus, blockEndsAt: t0.addingTimeInterval(3)))
     }
+
+    @Test func nonFiniteDurationsFallBackToStandard() {
+        let engine = TimerEngine(durations: TimerDurations(focus: .nan, shortBreak: .infinity, longBreak: -.infinity, focusBlocksUntilLongBreak: 4))
+        engine.start(at: t0)
+        #expect(engine.remaining(at: t0) == 25 * 60)
+        #expect(engine.advance(to: t0.addingTimeInterval(25 * 60)) == [.focus])
+        #expect(engine.state == .running(phase: .shortBreak, blockEndsAt: t0.addingTimeInterval(30 * 60)))
+    }
 }
